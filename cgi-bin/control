@@ -1,0 +1,67 @@
+#!/usr/bin/perl -I/Users/kimudaiki/Desktop
+
+###
+# Control CGI
+# This cgi controls each request from pages
+# 
+# @version 1.0
+# programmed by D.kim
+##
+
+use POSIX qw(strftime);
+use CGI;
+use Time::HiRes;
+
+# TODO : in Japanese
+# require 'jcode.pl';
+
+my $cgi = new CGI;
+
+print $cgi->header(-charset=>"utf-8");
+print $cgi->start_html;
+print "Processing..";
+
+
+my ($query, @in, $key, $val);
+my($method) = $ENV{'REQUEST_METHOD'};
+
+if ($method eq 'GET') {
+    $query = $ENV{'QUERY_STRING'};
+}
+elsif ($method eq 'POST') {
+    read(STDIN, $query, $ENV{'CONTENT_LENGTH'});
+}
+
+my(@qu) = split(/&/, $query);
+foreach (@qu) {
+    tr/+/ /;
+    ($key, $val) = split(/=/);
+    $key =~ s/%([A-Fa-f0-9][A-Fa-f0-9])/pack('c', hex($1))/ge;
+    $val =~ s/%([A-Fa-f0-9][A-Fa-f0-9])/pack('c', hex($1))/ge;
+    $val =~ s/\r\n/\n/g;
+    $in{$key} = $val;
+}
+
+my ($sec, $min, $hour, $day, $mon, $year) = localtime;
+my $data = sprintf('%04d%02d%02d%02d%02d_MMF.dat', $year + 1900, $mon + 1, $day, $hour, $min);
+open(OUT, ">>/tmp/overwhelm/$data");
+print OUT join(',', $in{'_mode'}, $in{'_master'}, $in{'_id'}, $in{'_name'});
+print OUT "\n";
+close(OUT);
+
+my $datFile = "/tmp/overwhelm/$data";
+my $workFile = "$datFile" . ".m";
+
+# Waiting to finish synchronizing..
+while (1) {
+    if (-f $workFile || -f $datFile) {
+        Time::HiRes::sleep(0.5);
+        next;
+    }
+    last;
+}
+print "<script>location.href = '" . $in{'_callback'} . "';</script>";
+
+print $cgi->end_html;
+
+1;
